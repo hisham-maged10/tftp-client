@@ -67,13 +67,13 @@ class TftpProcessor(object):
         print(f"Received a packet from {packet_source}")
         #in_packet = self._parse_udp_packet(packet_data)
         #out_packet = self._do_some_logic(in_packet)
-        out_packet = self._parse_udp_packet(packet_data)
+        out_packet = self._parse_udp_packet(packet_data, packet_source)
         # This shouldn't change.
         self.packet_buffer.append(out_packet)
         pass
 
     #common
-    def _parse_udp_packet(self, packet_bytes): ##parsing file to 512 packets
+    def _parse_udp_packet(self, packet_bytes, data_bytes): ##parsing file to 512 packets
         """
         You'll use the struct module here to determine
         the type of the packet and extract other available
@@ -92,6 +92,23 @@ class TftpProcessor(object):
             out_packet.append(block_no)
            
             print(f"output_packet: {out_packet}")
+        elif(packet_bytes[1] == 4):
+             print('Ack')
+             block_no = packet_bytes[3]
+             print(f'block_no Upload: {block_no}')
+             #data op code
+             out_packet.append(0)
+             out_packet.append(3)
+             #adding block-number
+             out_packet.append(0)
+             out_packet.append(block_no)
+             #adding data
+             print(f"ASDASDASD {data_bytes}")
+             #print(data_bytes.encode("ASCII"))
+             out_packet += bytearray(data_bytes)
+             print(f"output_packet: {out_packet}")
+
+
             
         elif(packet_bytes[1] == 5):
             self._handle_error(packet_bytes[3])
@@ -170,8 +187,9 @@ class TftpProcessor(object):
         #then modes
         request += bytearray(self.mode.encode("ASCII"))
         #request.append(bytes(self.mode, "ASCII"))
-        print(f"Request {request}")
+        #the null termination
         request.append(0)
+        print(f"Request {request}")
         return request
     #common
     def _handle_error(self, error_num):
@@ -188,7 +206,7 @@ class TftpProcessor(object):
             7 : "No such user.",
         }
         print(switcher.get(error_num, "Invalid error number"))
-        exit(-1)    #to terminate the program after printing the error
+        exit(-1)    #to terminate the program after printing the error Premature Termination
     
 
 #testing
@@ -221,19 +239,32 @@ def do_socket_logic(client_socket,request,tf,file):
     client_socket.sendto(request, tf.server_address)
     serverpacket, address = client_socket.recvfrom(4096)
     print(serverpacket)
-    tf.process_udp_packet(serverpacket,address)
+    file_bytes = _read_f_arraybytes(file)
+    databytes = do_file_operation(file_bytes)
+    tf.process_udp_packet(serverpacket,databytes) 
     while True:
         print(f"Request to be sent: {request}")
         client_socket.sendto(tf.get_next_output_packet(),address)
         serverpacket, address = client_socket.recvfrom(4096)
         print(serverpacket)
-        #do_file_operation()
-        check_termination(serverpacket)
-        tf.process_udp_packet(serverpacket,address)
+        databytes = do_file_operation(file_bytes)   #to get 512 bytes
         if not tf.has_pending_packets_to_be_sent():
             break
+        if(len(databytes) != 0):
+            tf.process_udp_packet(serverpacket,databytes)
     
     pass
+
+def do_file_operation(file_bytes):
+    # print(f"ASDASD [{i}] [{file_bytes[0 : 511]}]")
+    returnbytes = file_bytes[0 : 511]
+    file_bytes = file_bytes[512 : len(file_bytes)]
+    # if(len(file_bytes) == 0):
+    #     break
+    # i = i + 1
+    return returnbytes
+    pass
+
 def check_termination(serverpacket):
     if(serverpacket[1] == 3):
         if(len(serverpacket) < 516):
@@ -283,6 +314,11 @@ def get_arg(param_index, default=None):
             print(
                 f"[FATAL] The comamnd-line argument #[{param_index}] is missing")
             exit(-1)    # Program execution failed.
+
+def _read_f_arraybytes(filename):
+    """read file in array of bytes"""
+    return filename.read()
+    
 
 
 def main():
