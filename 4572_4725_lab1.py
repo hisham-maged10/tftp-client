@@ -53,6 +53,7 @@ class TftpProcessor(object):
         self.packet_buffer = []
         self.server_address = ("127.0.0.1", 69)
         self.mode = "octet"
+        self.terminate = False
         pass
     #unkown
     def process_udp_packet(self, packet_data, packet_source):
@@ -84,6 +85,8 @@ class TftpProcessor(object):
             print('data')
             block_no = packet_bytes[3]
             print(f'block_no: {block_no}')
+            if(len(packet_bytes) < 516):
+                self.terminate = True
             #ack op code
             out_packet.append(0)
             out_packet.append(4)
@@ -217,28 +220,26 @@ def do_socket_logic(client_socket,request,tf,file):
         Gets the Server packet along with the packet source
         and sends it for further processing to know which operation to be done depending on op-code
     """
-
     client_socket.sendto(request, tf.server_address)
     serverpacket, address = client_socket.recvfrom(4096)
     print(serverpacket)
+    do_file_operation(file,serverpacket)
     tf.process_udp_packet(serverpacket,address)
-    while True:
+    while tf.has_pending_packets_to_be_sent():
         print(f"Request to be sent: {request}")
         client_socket.sendto(tf.get_next_output_packet(),address)
-        serverpacket, address = client_socket.recvfrom(4096)
+        if not tf.terminate:
+            serverpacket, address = client_socket.recvfrom(4096)
+            tf.process_udp_packet(serverpacket,address)
         print(serverpacket)
-        #do_file_operation()
-        check_termination(serverpacket)
-        tf.process_udp_packet(serverpacket,address)
-        if not tf.has_pending_packets_to_be_sent():
-            break
-    
+        do_file_operation(file,serverpacket)
+    file.close()
     pass
-def check_termination(serverpacket):
+
+def do_file_operation(file,serverpacket):
     if(serverpacket[1] == 3):
-        if(len(serverpacket) < 516):
-            print(f"Recieved File!")
-            exit(0)
+        file.write(serverpacket[4:])
+    pass
 
 #common
 def parse_user_input(address, operation, file_name=None):
@@ -255,12 +256,13 @@ def parse_user_input(address, operation, file_name=None):
         request  = tf.upload_file(file_name)
         file = open(file_name,"rb")
         do_socket_logic(client_socket,request,tf,file)
+        print("Upload Complete!")
     elif operation == "pull":
         print(f"Attempting to download [{file_name}]...")
         request = tf.request_file(file_name)
         file = open(file_name,"wb")
         do_socket_logic(client_socket,request,tf,file)
-
+        print("File downloaded successfully!")
 
     pass
 
