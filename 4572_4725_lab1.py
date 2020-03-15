@@ -223,7 +223,7 @@ def do_socket_logic(client_socket,request,tf,file):
     client_socket.sendto(request, tf.server_address)
     serverpacket, address = client_socket.recvfrom(4096)
     print(serverpacket)
-    do_file_operation(file,serverpacket)
+    do_file_operation_download(file,serverpacket)
     tf.process_udp_packet(serverpacket,address)
     while tf.has_pending_packets_to_be_sent():
         print(f"Request to be sent: {request}")
@@ -232,11 +232,11 @@ def do_socket_logic(client_socket,request,tf,file):
             serverpacket, address = client_socket.recvfrom(4096)
             tf.process_udp_packet(serverpacket,address)
         print(serverpacket)
-        do_file_operation(file,serverpacket)
+        do_file_operation_download(file,serverpacket)
     file.close()
     pass
 
-def do_file_operation(file,serverpacket):
+def do_file_operation_download(file,serverpacket):
     if(serverpacket[1] == 3):
         file.write(serverpacket[4:])
     pass
