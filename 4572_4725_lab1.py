@@ -71,7 +71,7 @@ class TftpProcessor(object):
         # This shouldn't change.
         self.packet_buffer.append(out_packet)
 
-    def _parse_udp_packet(self, packet_bytes):
+    def _parse_udp_packet(self, packet_bytes): ##parsing file to 512 packets
         """
         You'll use the struct module here to determine
         the type of the packet and extract other available
@@ -128,7 +128,7 @@ class TftpProcessor(object):
         request = bytearray()
         #opcode for write 02
         request.append(0)
-        request.append(1)
+        request.append(2)
         #file name
         #print(bytearray(file_path_on_server.encode("ASCII")))
         request += bytearray(file_path_on_server.encode("ASCII"))
@@ -140,8 +140,23 @@ class TftpProcessor(object):
         #request.append(bytes(self.mode, "ASCII"))
         print(f"Request {request}")
         return request
+    
+    def _handle_error(self, error_num):
+        print(error_num)
 
-        pass
+        switcher = {
+            0 : "Not defined, see error message (if any).",
+            1 : "File not found.",
+            2 : "Access violation.",
+            3 : "Disk full or allocation exceeded.",
+            4 : "Illegal TFTP operation.",
+            5 : "Unknown transfer ID.",
+            6 : "File already exists.",
+            7 : "No such user.",
+        }
+        print(switcher.get(error_num, "Invalid error number"))
+        exit(-1)    #to terminate the program after printing the error
+    
 
 
 def check_file_name():
@@ -187,8 +202,12 @@ def parse_user_input(address, operation, file_name=None):
         print(f"Attempting to upload [{file_name}]...")
         tf = TftpProcessor()
         request  = tf.upload_file(file_name)
-        receive = client_socket.sendto(request, tf.server_address)
-        pass
+        client_socket.sendto(request, tf.server_address)
+        serverpacket, address = client_socket.recvfrom(516)
+        print(serverpacket)
+        #print(serverpacket[1])
+        if(serverpacket[1] == 5):
+            tf._handle_error(serverpacket[3])
     elif operation == "pull":
         print(f"Attempting to download [{file_name}]...")
         pass
