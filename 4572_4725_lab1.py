@@ -54,7 +54,7 @@ class TftpProcessor(object):
         self.server_address = ("127.0.0.1", 69)
         self.mode = "octet"
         pass
-
+    #unkown
     def process_udp_packet(self, packet_data, packet_source):
         """
         Parse the input packet, execute your logic according to that packet.
@@ -65,26 +65,45 @@ class TftpProcessor(object):
         # add the packet to be sent to self.packet_buffer
         # feel free to remove this line
         print(f"Received a packet from {packet_source}")
-        in_packet = self._parse_udp_packet(packet_data)
-        out_packet = self._do_some_logic(in_packet)
-
+        #in_packet = self._parse_udp_packet(packet_data)
+        #out_packet = self._do_some_logic(in_packet)
+        out_packet = self._parse_udp_packet(packet_data)
         # This shouldn't change.
         self.packet_buffer.append(out_packet)
+        pass
 
+    #common
     def _parse_udp_packet(self, packet_bytes): ##parsing file to 512 packets
         """
         You'll use the struct module here to determine
         the type of the packet and extract other available
         information.
         """
-        pass
+        out_packet = bytearray()
+        if(packet_bytes[1] == 3):
+            print('data')
+            block_no = packet_bytes[3]
+            print(f'block_no: {block_no}')
+            #ack op code
+            out_packet.append(0)
+            out_packet.append(4)
+            #adding block-number
+            out_packet.append(0)
+            out_packet.append(block_no)
+           
+            print(f"output_packet: {out_packet}")
+            
+        elif(packet_bytes[1] == 5):
+            self._handle_error(packet_bytes[3])
+        
+        return out_packet
 
     def _do_some_logic(self, input_packet):
         """
         Example of a private function that does some logic.
         """
         pass
-
+    #upload
     def get_next_output_packet(self):
         """
         Returns the next packet that needs to be sent.
@@ -97,7 +116,7 @@ class TftpProcessor(object):
         Leave this function as is.
         """
         return self.packet_buffer.pop(0)
-
+    #upload
     def has_pending_packets_to_be_sent(self):
         """
         Returns if any packets to be sent are available.
@@ -105,7 +124,7 @@ class TftpProcessor(object):
         Leave this function as is.
         """
         return len(self.packet_buffer) != 0
-
+    #download
     def request_file(self, file_path_on_server):
         """
         This method is only valid if you're implementing
@@ -126,9 +145,9 @@ class TftpProcessor(object):
         #adding mode
         request += bytearray(self.mode.encode("ASCII"))
         print(f"Request {request}")
-
+        request.append(0)
         return request
-
+    #upload
     def upload_file(self, file_path_on_server):
         """
         This method is only valid if you're implementing
@@ -152,10 +171,11 @@ class TftpProcessor(object):
         request += bytearray(self.mode.encode("ASCII"))
         #request.append(bytes(self.mode, "ASCII"))
         print(f"Request {request}")
+        request.append(0)
         return request
-    
+    #common
     def _handle_error(self, error_num):
-        print(error_num)
+        #print(error_num)
 
         switcher = {
             0 : "Not defined, see error message (if any).",
@@ -171,7 +191,7 @@ class TftpProcessor(object):
         exit(-1)    #to terminate the program after printing the error
     
 
-
+#testing
 def check_file_name():
     script_name = os.path.basename(__file__)
     import re
@@ -180,7 +200,7 @@ def check_file_name():
         print(f"[WARN] File name is invalid [{script_name}]")
     pass
 
-
+#common
 def setup_sockets(address):
     """
     Socket logic MUST NOT be written in the TftpProcessor
@@ -190,19 +210,33 @@ def setup_sockets(address):
     """
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #Create udp socket
     return client_socket
+
+#common
+def do_socket_logic(client_socket,request,tf):
+    """
+        Gets the Server packet along with the packet source
+        and sends it for further processing to know which operation to be done depending on op-code
+    """
+
+    client_socket.sendto(request, tf.server_address)
+    serverpacket, address = client_socket.recvfrom(4096)
+    print(serverpacket)
+    tf.process_udp_packet(serverpacket,address)
+    while True:
+        print(f"Request to be sent: {request}")
+        client_socket.sendto(tf.get_next_output_packet(),address)
+        serverpacket, address = client_socket.recvfrom(4096)
+        print(serverpacket)
+        if(len(serverpacket) < 516):
+            print(f"Recieved File!")
+            exit(0)
+        tf.process_udp_packet(serverpacket,address)
+        if not tf.has_pending_packets_to_be_sent():
+            break
+    
     pass
 
-
-def do_socket_logic():
-    """
-    Example function for some helper logic, in case you
-    want to be tidy and avoid stuffing the main function.
-
-    Feel free to delete this function.
-    """
-    pass
-
-
+#common
 def parse_user_input(address, operation, file_name=None):
     # Your socket logic can go here,
     # you can surely add new functions
@@ -211,24 +245,20 @@ def parse_user_input(address, operation, file_name=None):
     # Feel free to delete this code as long as the
     # functionality is preserved.
     client_socket = setup_sockets(address)
+    tf = TftpProcessor()
     if operation == "push":
         print(f"Attempting to upload [{file_name}]...")
-        tf = TftpProcessor()
         request  = tf.upload_file(file_name)
-        client_socket.sendto(request, tf.server_address)
-        serverpacket, address = client_socket.recvfrom(516)
-        print(serverpacket)
-        #print(serverpacket[1])
-        if(serverpacket[1] == 5):
-            tf._handle_error(serverpacket[3])
+        do_socket_logic(client_socket,request,tf)
     elif operation == "pull":
         print(f"Attempting to download [{file_name}]...")
-        tf = TftpProcessor()
         request = tf.request_file(file_name)
-        response = client.socket.sendto(request, tf.server_address)
-        pass
+        do_socket_logic(client_socket,request,tf)
 
 
+    pass
+
+#common
 def get_arg(param_index, default=None):
     """
         Gets a command line argument by index (note: index starts from 1)
