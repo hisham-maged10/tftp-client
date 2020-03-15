@@ -95,16 +95,15 @@ class TftpProcessor(object):
         elif(packet_bytes[1] == 4):
              print('Ack')
              block_no = packet_bytes[3]
+             block_no += 1
              print(f'block_no Upload: {block_no}')
              #data op code
              out_packet.append(0)
              out_packet.append(3)
              #adding block-number
              out_packet.append(0)
-             out_packet.append(block_no + 1)
+             out_packet.append(block_no)
              #adding data
-             #print(f"ASDASDASD {data_bytes}")
-             #print(data_bytes.encode("ASCII"))
              out_packet += data_bytes
              print(f"output_packet: {out_packet}")
 
@@ -252,13 +251,15 @@ def do_socket_logic(client_socket,request,tf,file):
             print("File uploaded completed successfully")
             break
         tf.process_udp_packet(serverpacket, address, databytes)
+        if not tf.has_pending_packets_to_be_sent():
+            print("SADASDASDASDASDAASDSA")
     
     file.close()
     
     pass
 
 def do_file_operation(file_bytes):
-    returnbytes = file_bytes[0 : 511]
+    returnbytes = file_bytes[0 : 512]
     file_bytes = file_bytes[512 : len(file_bytes)]
     return returnbytes, file_bytes
     pass
@@ -336,7 +337,7 @@ def main():
     # are provided. Feel free to modify them.
     ip_address = get_arg(1, "127.0.0.1")
     operation = get_arg(2, "push")
-    file_name = get_arg(3, "to_upload.txt")
+    file_name = get_arg(3, "test.txt")
 
     # Modify this as needed.
     parse_user_input(ip_address, operation, file_name)
