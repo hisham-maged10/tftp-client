@@ -55,7 +55,7 @@ class TftpProcessor(object):
         self.mode = "octet"
         pass
     #unkown
-    def process_udp_packet(self, packet_data, packet_source):
+    def process_udp_packet(self, packet_data, packet_source, databytes):
         """
         Parse the input packet, execute your logic according to that packet.
         packet data is a bytearray, packet source contains the address
@@ -67,7 +67,7 @@ class TftpProcessor(object):
         print(f"Received a packet from {packet_source}")
         #in_packet = self._parse_udp_packet(packet_data)
         #out_packet = self._do_some_logic(in_packet)
-        out_packet = self._parse_udp_packet(packet_data, packet_source)
+        out_packet = self._parse_udp_packet(packet_data, databytes)
         # This shouldn't change.
         self.packet_buffer.append(out_packet)
         pass
@@ -101,11 +101,11 @@ class TftpProcessor(object):
              out_packet.append(3)
              #adding block-number
              out_packet.append(0)
-             out_packet.append(block_no)
+             out_packet.append(block_no + 1)
              #adding data
-             print(f"ASDASDASD {data_bytes}")
+             #print(f"ASDASDASD {data_bytes}")
              #print(data_bytes.encode("ASCII"))
-             out_packet += bytearray(data_bytes)
+             out_packet += data_bytes
              print(f"output_packet: {out_packet}")
 
 
@@ -240,29 +240,27 @@ def do_socket_logic(client_socket,request,tf,file):
     serverpacket, address = client_socket.recvfrom(4096)
     print(serverpacket)
     file_bytes = _read_f_arraybytes(file)
-    databytes = do_file_operation(file_bytes)
-    tf.process_udp_packet(serverpacket,databytes) 
+    databytes, file_bytes = do_file_operation(file_bytes)
+    tf.process_udp_packet(serverpacket, address, databytes)
     while True:
         print(f"Request to be sent: {request}")
         client_socket.sendto(tf.get_next_output_packet(),address)
         serverpacket, address = client_socket.recvfrom(4096)
-        print(serverpacket)
-        databytes = do_file_operation(file_bytes)   #to get 512 bytes
-        if not tf.has_pending_packets_to_be_sent():
+        print(f"Server packets in while {serverpacket}")
+        databytes, file_bytes = do_file_operation(file_bytes)   #to get 512 bytes
+        if(len(databytes) == 0):
+            print("File uploaded completed successfully")
             break
-        if(len(databytes) != 0):
-            tf.process_udp_packet(serverpacket,databytes)
+        tf.process_udp_packet(serverpacket, address, databytes)
+    
+    file.close()
     
     pass
 
 def do_file_operation(file_bytes):
-    # print(f"ASDASD [{i}] [{file_bytes[0 : 511]}]")
     returnbytes = file_bytes[0 : 511]
     file_bytes = file_bytes[512 : len(file_bytes)]
-    # if(len(file_bytes) == 0):
-    #     break
-    # i = i + 1
-    return returnbytes
+    return returnbytes, file_bytes
     pass
 
 def check_termination(serverpacket):
@@ -338,7 +336,7 @@ def main():
     # are provided. Feel free to modify them.
     ip_address = get_arg(1, "127.0.0.1")
     operation = get_arg(2, "push")
-    file_name = get_arg(3, "test.txt")
+    file_name = get_arg(3, "to_upload.txt")
 
     # Modify this as needed.
     parse_user_input(ip_address, operation, file_name)
