@@ -212,7 +212,7 @@ def setup_sockets(address):
     return client_socket
 
 #common
-def do_socket_logic(client_socket,request,tf):
+def do_socket_logic(client_socket,request,tf,file):
     """
         Gets the Server packet along with the packet source
         and sends it for further processing to know which operation to be done depending on op-code
@@ -227,14 +227,18 @@ def do_socket_logic(client_socket,request,tf):
         client_socket.sendto(tf.get_next_output_packet(),address)
         serverpacket, address = client_socket.recvfrom(4096)
         print(serverpacket)
-        if(len(serverpacket) < 516):
-            print(f"Recieved File!")
-            exit(0)
+        #do_file_operation()
+        check_termination(serverpacket)
         tf.process_udp_packet(serverpacket,address)
         if not tf.has_pending_packets_to_be_sent():
             break
     
     pass
+def check_termination(serverpacket):
+    if(serverpacket[1] == 3):
+        if(len(serverpacket) < 516):
+            print(f"Recieved File!")
+            exit(0)
 
 #common
 def parse_user_input(address, operation, file_name=None):
@@ -249,11 +253,13 @@ def parse_user_input(address, operation, file_name=None):
     if operation == "push":
         print(f"Attempting to upload [{file_name}]...")
         request  = tf.upload_file(file_name)
-        do_socket_logic(client_socket,request,tf)
+        file = open(file_name,"rb")
+        do_socket_logic(client_socket,request,tf,file)
     elif operation == "pull":
         print(f"Attempting to download [{file_name}]...")
         request = tf.request_file(file_name)
-        do_socket_logic(client_socket,request,tf)
+        file = open(file_name,"wb")
+        do_socket_logic(client_socket,request,tf,file)
 
 
     pass
