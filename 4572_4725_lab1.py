@@ -114,7 +114,20 @@ class TftpProcessor(object):
         accept is the file name. Remove this function if you're
         implementing a server.
         """
-        pass
+        ##creating the tftp RRQ format
+        request = bytearray()
+        #opcode for RRQ is 01
+        request.append(0)
+        request.append(1)
+        #converting file name to bytes
+        request += bytearray(file_path_on_server.encode("ASCII"))
+        #delimiting it by 0
+        request.append(0)
+        #adding mode
+        request += bytearray(self.mode.encode("ASCII"))
+        print(f"Request {request}")
+
+        return request
 
     def upload_file(self, file_path_on_server):
         """
@@ -210,6 +223,9 @@ def parse_user_input(address, operation, file_name=None):
             tf._handle_error(serverpacket[3])
     elif operation == "pull":
         print(f"Attempting to download [{file_name}]...")
+        tf = TftpProcessor()
+        request = tf.request_file(file_name)
+        response = client.socket.sendto(request, tf.server_address)
         pass
 
 
