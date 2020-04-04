@@ -83,33 +83,38 @@ class TftpProcessor(object):
         out_packet = bytearray()
         if(packet_bytes[1] == 3):
             print('data')
-            block_no = packet_bytes[3]
-            print(f'block_no: {block_no}')
+            block_no_1 = packet_bytes[2]
+            block_no_2 = packet_bytes[3]
+            print(f'block_no: {block_no_1} , {block_no_2}')
             if(len(packet_bytes) < 516):
                 self.terminate = True
             #ack op code
             out_packet.append(0)
             out_packet.append(4)
             #adding block-number
-            out_packet.append(0)
-            out_packet.append(block_no)
+            out_packet.append(block_no_1)
+            out_packet.append(block_no_2)
            
             print(f"output_packet: {out_packet}")
         
         elif(packet_bytes[1] == 4):
              print('Ack')
-             block_no = packet_bytes[3]
-             block_no += 1
-             print(f'block_no Upload: {block_no}')
+             block_no_1 = packet_bytes[2]
+             block_no_2 = packet_bytes[3]
+             block_no_2 += 1
+             print(f'block_no Upload: {block_no_2} , {block_no_1} ')
              #data op code
              out_packet.append(0)
              out_packet.append(3)
              #adding block-number
-             out_packet.append(0)
-             out_packet.append(block_no)
+             if(block_no_2 == 256):
+                 block_no_1 += 1
+                 block_no_2 = 0
+             out_packet.append(block_no_1)
+             out_packet.append(block_no_2)
              #adding data
              out_packet += data_bytes
-             print(f"output_packet: {out_packet}")
+             #print(f"output_packet: {out_packet}")
 
         elif(packet_bytes[1] == 5):
             self._handle_error(packet_bytes[3])
@@ -164,6 +169,7 @@ class TftpProcessor(object):
         request += bytearray(self.mode.encode("ASCII"))
         print(f"Request {request}")
         request.append(0)
+        
         return request
     #upload
     def upload_file(self, file_path_on_server):
@@ -246,8 +252,8 @@ def do_socket_logic_download(client_socket,request,tf,file):
         if not tf.terminate:
             serverpacket, address = client_socket.recvfrom(4096)
             tf.process_udp_packet(serverpacket,address)
+            do_file_operation_download(file,serverpacket)
         print(serverpacket)
-        do_file_operation_download(file,serverpacket)
     file.close()
     pass
 
